@@ -1,0 +1,79 @@
+service:
+  name: conceitosnodeserverless
+
+plugins: 
+  - serverless-webpack
+  - serverless-offline
+  - serverless-dynamodb-local
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - 'node_modules/node-fetch/**'   
+
+custom:
+  webpack:
+      webpackConfig: ./webpack.config.js
+      includeModules: true
+  dynamodb:
+    stages:
+      - dev
+      - local
+    start:
+      port: 8080
+      inMemory: true
+      migrate: true
+      
+provider: 
+  name: aws
+  region: sa-east-1
+  runtime: nodejs14.x
+  iamRoleStatements: 
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource: "*"   
+
+funtions:
+  createTodo:
+    handler: src/funtions/createTodo/create.handle
+    events:
+      - http:
+          path: /todos/{user_id}
+          method: POST
+          cors: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: "arn:aws:dynamodb:${self.provider.region}:*:table/users_todos"
+
+  listTodo:
+    handler: src/funtions/listTodo/list.handle
+    events:
+      - http:
+          path: /todos/{user_id}
+          method: GET
+          cors: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: "arn:aws:dynamodb:${self.provider.region}:*:table/users_todos"
+
+
+resources:
+  Resource:
+    dbTodoUsers:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: users_todos
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        AttributeDefinitions:
+          - AttibuteName: id
+            AtributeType: S
+        KeySchema:
+          - AttibuteName: id
+            KeyType: HASH
